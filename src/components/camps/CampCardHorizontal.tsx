@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { MapPin, Calendar, Users, ArrowRight } from 'lucide-react'
+import CampLocation from '@/components/camps/CampLocation';
 
 interface CampCardHorizontalProps {
     camp: any;

@@ -1,52 +1,134 @@
-import React from 'react'
-import { Container } from '@/components/home/Shared'
+"use client";
+
+import React from 'react';
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
+    Dialog,
+    DialogContent,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface CampImagesGalleryProps {
     images: any[];
+    title: string;
+    subtitle?: string;
+    description?: string;
+    id?: string;
 }
 
-export default function CampImagesGallery({ images }: CampImagesGalleryProps) {
+export default function CampImagesGallery({ images, title, subtitle, description, id }: CampImagesGalleryProps) {
     if (!images || images.length === 0) return null;
 
-    // We can show up to 6 images in a nice grid
-    const displayImages = images.slice(0, 6);
-
     return (
-        <section id="hinh-anh" className="scroll-mt-[148px] md:scroll-mt-[164px] bg-white py-10 md:py-16">
-            <Container>
-                <div className="mb-6 md:mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="max-w-[780px]">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">Hình ảnh thực tế</p>
-                            <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>Lưu trữ từ các camp trước.</h2>
-                            <p className="mt-4 max-w-[44rem] text-[14px] leading-7 text-slate-600">Những khoảnh khắc chân thực nhất của team Gopeaks.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                    {displayImages.map((img: any, i: number) => {
-                        const url = img.image?.node?.sourceUrl || img.url || img;
-                        const isLarge = i === 0;
-                        return (
-                            <div 
-                                key={i} 
-                                className={`group relative overflow-hidden rounded-[24px] bg-slate-100 transition-all duration-700 hover:shadow-2xl ${
-                                    isLarge ? 'col-span-2 row-span-2 aspect-[1.1/1]' : 'aspect-square'
-                                } animate-in fade-in zoom-in-95 duration-700`}
-                                style={{ transitionDelay: `${i * 100}ms` }}
-                            >
-                                <img 
-                                    src={url} 
-                                    alt={`Camp gallery ${i + 1}`} 
-                                    className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                                />
-                                <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/20" />
+        <section id={id} className="scroll-mt-[120px] bg-white py-6 text-slate-950">
+            <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <article className="rounded-[28px] border border-[#dde7fb] bg-white/80 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-6">
+                        <div className="flex flex-col gap-5 border-b border-[#e6eefc] pb-5">
+                            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                                <div className="max-w-[52ch]">
+                                    {subtitle && (
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#2C4ACE] mb-2">{subtitle}</p>
+                                    )}
+                                    <h3 className="text-[clamp(1.35rem,2.7vw,2rem)] leading-[1.12] tracking-tight text-slate-950 font-bold">
+                                        {title}
+                                    </h3>
+                                    {description && (
+                                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                                            {description}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="hidden md:flex gap-2 mb-1">
+                                    {/* These will be controlled by the Carousel context if placed inside <Carousel /> */}
+                                </div>
                             </div>
-                        );
-                    })}
+                        </div>
+
+                        <div className="mt-5">
+                            <Carousel
+                                opts={{
+                                    align: "start",
+                                    loop: true,
+                                }}
+                                className="w-full"
+                            >
+                                <div className="relative group/carousel">
+                                    <CarouselContent className="-ml-3 md:-ml-4">
+                                        {images.map((img: any, i: number) => {
+                                            // Try all possible ways ACF/WP can return an image URL
+                                            const url = img?.url || 
+                                                      img?.source_url || 
+                                                      img?.sizes?.large || 
+                                                      img?.sizes?.medium_large ||
+                                                      img?.guid?.rendered || 
+                                                      (typeof img === 'string' ? img : '');
+                                            
+                                            const alt = img?.alt || img?.title || `${title} image ${i + 1}`;
+                                            
+                                            // Domain fix if needed
+                                            const finalUrl = (url && url.startsWith('/')) 
+                                                ? `https://sub.gopeaks.coach${url}` 
+                                                : url;
+
+                                            if (!finalUrl) {
+                                                console.log(`Gallery image ${i} in ${title} has no URL:`, img);
+                                                return null;
+                                            }
+
+                                            return (
+                                                <CarouselItem 
+                                                    key={i} 
+                                                    className="basis-[84%] pl-3 sm:basis-[52%] md:basis-[42%] md:pl-4 xl:basis-[32%]"
+                                                >
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <button 
+                                                                type="button" 
+                                                                className="group relative block w-full overflow-hidden rounded-[24px] border border-[#dfe7f8] bg-[#f4f7ff] text-left shadow-[0_14px_34px_rgba(15,23,42,0.05)] focus:outline-none"
+                                                            >
+                                                                <div className="relative aspect-[1.06/0.88] w-full overflow-hidden">
+                                                                    <img
+                                                                        src={finalUrl}
+                                                                        alt={alt}
+                                                                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                                                                    />
+                                                                </div>
+                                                            </button>
+                                                        </DialogTrigger>
+                                                        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 border-none bg-transparent shadow-none [&>button]:text-white z-[100]">
+                                                            <div className="relative h-[80vh] w-full">
+                                                                <img
+                                                                    src={finalUrl}
+                                                                    alt={alt}
+                                                                    className="h-full w-full object-contain"
+                                                                />
+                                                            </div>
+                                                        </DialogContent>
+                                                    </Dialog>
+                                                </CarouselItem>
+                                            );
+                                        })}
+                                    </CarouselContent>
+                                    
+                                    <div className="absolute top-1/2 -left-4 -translate-y-1/2 opacity-0 group-hover/carousel:opacity-100 transition-opacity hidden xl:block">
+                                        <CarouselPrevious className="relative left-0 translate-y-0 border-none bg-white/80 backdrop-blur-md shadow-lg hover:bg-white" />
+                                    </div>
+                                    <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-0 group-hover/carousel:opacity-100 transition-opacity hidden xl:block">
+                                        <CarouselNext className="relative right-0 translate-y-0 border-none bg-white/80 backdrop-blur-md shadow-lg hover:bg-white" />
+                                    </div>
+                                </div>
+                            </Carousel>
+                        </div>
+                    </article>
                 </div>
-            </Container>
+            </div>
         </section>
-    )
+    );
 }

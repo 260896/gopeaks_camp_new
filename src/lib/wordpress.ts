@@ -22,6 +22,7 @@ export interface WPCamp {
   slug: string;
   link: string;
   title: { rendered: string };
+  excerpt?: { rendered: string };
   content: { rendered: string };
   featured_media: number;
   acf: {
@@ -62,8 +63,11 @@ export interface WPCamp {
     }>;
     service_camp?: Array<{
       title_service?: string;
-      content_service?: string;
       status_service?: boolean;
+      content_service?: Array<{
+        list_service?: string;
+      }> | false | null;
+      
     }>;
     camp_food?: AcfImage[];
     experience_camp?: Array<{
@@ -185,6 +189,78 @@ export function formatWPCampDate(timeCamp: any): string {
   return `${start.day}.${start.month}-${end.day}.${end.month}.${end.year}`;
 }
 
+export function getStartDateTimestamp(timeCamp: any): number {
+  if (!timeCamp) return Infinity;
+  if (Array.isArray(timeCamp) && timeCamp.length > 0) {
+    timeCamp = timeCamp[0];
+  }
+
+  const startStr = timeCamp.time_start || timeCamp.start || timeCamp.bTDU;
+  if (!startStr) return Infinity;
+
+  const parseDateStr = (dStr: string) => {
+    if (/^\d{8}$/.test(dStr)) {
+      return {
+        day: dStr.substring(6, 8),
+        month: dStr.substring(4, 6),
+        year: dStr.substring(0, 4),
+      };
+    }
+    const parts = dStr.split(/[-/.]/);  
+    if (parts.length === 3) {
+      if (parts[0].length === 4) return { year: parts[0], month: parts[1], day: parts[2] };
+      return { day: parts[0], month: parts[1], year: parts[2] };
+    }
+    return null;
+  };
+
+  const parsed = parseDateStr(startStr);
+  if (!parsed) return Infinity;
+
+  return new Date(`${parsed.year}-${parsed.month}-${parsed.day}`).getTime();
+}
+
+export function getEndDateTimestamp(timeCamp: any): number {
+  if (!timeCamp) return Infinity;
+  if (Array.isArray(timeCamp) && timeCamp.length > 0) {
+    timeCamp = timeCamp[0];
+  }
+
+  const endStr = timeCamp.time_end || timeCamp.end;
+  if (!endStr) return Infinity;
+
+  const parseDateStr = (dStr: string) => {
+    if (/^\d{8}$/.test(dStr)) {
+      return {
+        day: dStr.substring(6, 8),
+        month: dStr.substring(4, 6),
+        year: dStr.substring(0, 4),
+      };
+    }
+    const parts = dStr.split(/[-/.]/);  
+    if (parts.length === 3) {
+      if (parts[0].length === 4) return { year: parts[0], month: parts[1], day: parts[2] };
+      return { day: parts[0], month: parts[1], year: parts[2] };
+    }
+    return null;
+  };
+
+  const parsed = parseDateStr(endStr);
+  if (!parsed) return Infinity;
+
+  return new Date(`${parsed.year}-${parsed.month}-${parsed.day}`).getTime();
+}
+
+export function getCampStatus(timeCamp: any): 'upcoming' | 'active' | 'past' {
+  const now = new Date().getTime();
+  const startTimestamp = getStartDateTimestamp(timeCamp);
+  const endTimestamp = getEndDateTimestamp(timeCamp);
+
+  if (now < startTimestamp) return 'upcoming';
+  if (now > endTimestamp) return 'past';
+  return 'active';
+}
+
 export async function fetchWPCamps(): Promise<WPCamp[]> {
   const url = `${WP_URL}/camp?_embed&per_page=100`;
   try {
@@ -297,6 +373,9 @@ export function mapWPCampToUpcomingCamp(wpCamp: WPCamp) {
     highlights: [],
     overview: wpCamp.content?.rendered || '',
     excerpt: (wpCamp.content?.rendered || '').substring(0, 200).replace(/<[^>]*>?/gm, ''),
+    description: (wpCamp.excerpt?.rendered || wpCamp.content?.rendered || '').replace(/<[^>]*>?/gm, '').substring(0, 200),
+    startTimestamp: getStartDateTimestamp(acf.time_camp),
+    endTimestamp: getEndDateTimestamp(acf.time_camp),
     pricingOptions,
     programDays,
     acfRaw: acf,

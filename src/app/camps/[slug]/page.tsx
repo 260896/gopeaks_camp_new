@@ -75,11 +75,16 @@ const bannerEndImage = typeof bannerEnd?.image === 'object' && bannerEnd?.image 
 
             <CampExperience experiences={acfFields?.experienceCamp} />
 
+            {/* Food Section */}
             <CampImagesGallery 
-                images={acfFields?.campFood} 
-                title="Ẩm thực tại resort." 
+                images={
+                    (acfFields?.camp_food || acfFields?.campFood || [])?.map((item: any) => 
+                        item?.link_image || item?.linkImage || item
+                    )
+                } 
+                title="Ẩm thực trong resort" 
                 subtitle="Resort Dining"
-                description="Thực đơn được thiết kế riêng nhằm đảm bảo dinh dưỡng và năng lượng cho chuỗi ngày tập luyện cường độ cao."
+                description="Một vài khung hình bữa ăn và cách resort phục vụ để bạn dễ mường tượng nhịp nghỉ thực tế."
                 id="am-thuc"
             />
 
@@ -87,13 +92,18 @@ const bannerEndImage = typeof bannerEnd?.image === 'object' && bannerEnd?.image 
 
             <CampPricing packages={camp.pricingOptions} slug={slug} />
 
-            <CampInclusions services={acfFields?.serviceCamp} />
+            <CampInclusions services={acfFields?.service_camp} />
 
-            <CampLocation  vTriVaBND={acfFields?.location_camps} nearPointCamp={acfFields?.near_point_camp} checkLocCamps={acfFields?.check_loc_camps} />
+            <CampLocation  vTriVaBND={acfFields?.location_camps} nearPointCamp={acfFields?.near_point_camp} checkLocCamps={acfFields?.check_loc_camps} slug={slug} />
 
+            {/* Rest Section */}
             <CampImagesGallery 
-                images={acfFields?.goCamp} 
-                title="Không gian nghỉ ngơi." 
+                images={
+                    (acfFields?.go_camp || acfFields?.goCamp || [])?.map((item: any) => 
+                        item?.link_image || item?.linkImage || item
+                    )
+                } 
+                title="Không gian nghỉ" 
                 subtitle="Stay & Relax"
                 description="Phòng nghỉ tiêu chuẩn cao cấp, yên tĩnh và đầy đủ tiện nghi giúp cơ thể phục hồi tốt nhất."
                 id="nghi-ngoi"
@@ -117,11 +127,16 @@ const bannerEndImage = typeof bannerEnd?.image === 'object' && bannerEnd?.image 
                 </section>
             )}
 
+            {/* Moments Section */}
             <CampImagesGallery 
-                images={acfFields?.momentCamps?.[0]?.hinhNh} 
-                title="Những khoảnh khắc khó quên." 
+                images={
+                    (acfFields?.moment_camps || acfFields?.momentCamps || [])?.map((item: any) => 
+                        item?.link_image || item?.linkImage || item
+                    )
+                } 
+                title="Khoảnh khắc khó quên" 
                 subtitle="Memories"
-                description={acfFields?.momentCamps?.[0]?.moT || "Ghi lại những nỗ lực và niềm vui cùng đồng đội."}
+                description={acfFields?.mo_ta_moment || acfFields?.moTaMoment || "Ghi lại những nỗ lực và niềm vui cùng đồng đội."}
                 id="khoanh-khac"
             />
 

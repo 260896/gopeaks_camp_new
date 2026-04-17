@@ -4,8 +4,10 @@ import { ArrowRight } from 'lucide-react'
 import { Container } from '@/components/home/Shared'
 import CampsHero from '@/components/camps/CampsHero'
 import CampsTimeline from '@/components/camps/CampsTimeline'
-import CampCardHorizontal from '@/components/camps/CampCardHorizontal'
+import CampsListWrapper from '@/components/camps/CampsListWrapper'
+import CampsExplorer from '@/components/camps/CampsExplorer'
 import { fetchWPCamps, mapWPCampToUpcomingCamp, getPageBySlug } from '@/lib/wordpress'
+import { Suspense } from 'react'
 
 export const metadata = {
     title: "Camp sắp tới | Lịch camp và race week của Gopeaks",
@@ -14,7 +16,9 @@ export const metadata = {
 
 export default async function CampsPage() {
     const rawCamps = await fetchWPCamps();
-    const camps = Array.isArray(rawCamps) ? rawCamps.map(mapWPCampToUpcomingCamp) : [];
+    const camps = Array.isArray(rawCamps) 
+        ? rawCamps.map(mapWPCampToUpcomingCamp)
+        : [];
     const pageData = await getPageBySlug('camps');
 
     return (
@@ -26,23 +30,10 @@ export default async function CampsPage() {
                 image={pageData?.featuredImage?.node?.sourceUrl}
             />
 
-            {/* Timeline Section */}
-            <CampsTimeline />
-
-            {/* Camps List Section */}
-            <section className="bg-white py-10 text-slate-950 md:py-12">
-                <Container>
-                    <div className="space-y-5">
-                        {camps?.map((camp: any, i: number) => (
-                            <CampCardHorizontal 
-                                key={camp.slug} 
-                                camp={camp} 
-                                isFeatured={i === 0} 
-                            />
-                        ))}
-                    </div>
-                </Container>
-            </section>
+            {/* Main Content Explorer with Tabs */}
+            <Suspense fallback={<div className="min-h-[600px] bg-[#f8fbff] animate-pulse" />}>
+                <CampsExplorer camps={camps} />
+            </Suspense>
 
             {/* Bottom Contact Section */}
             <section className="bg-white py-10 text-slate-950 md:py-12">

@@ -1,12 +1,57 @@
-import { getPostBySlug, getRecentPosts } from "@/lib/wordpress";
+import { getPostBySlug, getRecentPosts, stripHtml } from "@/lib/wordpress";
+import { normalizeSEO, replaceWPDomain } from "@/lib/seo";
 import { Container } from "@/components/home/Shared";
 import ContentRender from "@/components/wp-content/ContentRender";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Quote, ArrowRight } from "lucide-react";
+import { Metadata } from 'next';
+import Image from 'next/image';
 
-export default async function StoryDetail({ params }: { params: { slug: string } }) {
-    const post = await getPostBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+    const { slug } = await params;
+    const post = await getPostBySlug(slug);
+    if (!post) return { title: 'Story Not Found' };
+
+    const acf = post.acfFields || {};
+    const imageUrl = post.featuredImage?.node?.sourceUrl || null;
+    
+    const seoData = normalizeSEO({
+        title: acf.rank_math_title || post.title,
+        description: stripHtml(acf.rank_math_description || post.excerpt || ''),
+        canonical: acf.rank_math_canonical_url || `https://gopeaks.camp/stories/${slug}`,
+        ogTitle: acf.rank_math_og_title,
+        ogDescription: acf.rank_math_og_description,
+        ogImage: acf.rank_math_og_image || imageUrl,
+        robots: acf.rank_math_robots,
+    });
+
+    return {
+        title: seoData.title,
+        description: seoData.description,
+        alternates: {
+            canonical: seoData.canonical,
+        },
+        robots: seoData.robots,
+        openGraph: {
+            title: seoData.ogTitle || seoData.title,
+            description: seoData.ogDescription || seoData.description,
+            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
+            type: 'article',
+            url: seoData.canonical,
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: seoData.title,
+            description: seoData.description,
+            images: seoData.ogImage ? [seoData.ogImage] : [],
+        }
+    };
+}
+
+export default async function StoryDetail({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const post = await getPostBySlug(slug);
     const recentPosts = await getRecentPosts(3);
 
     if (!post) {
@@ -14,23 +59,54 @@ export default async function StoryDetail({ params }: { params: { slug: string }
     }
 
     const { title, content, featuredImage, acfFields } = post;
+    
+    // Schema JSON-LD
+    const jsonLd = acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null;
+
+    const stats = [
+        { value: acfFields?.duration || '3', unit: 'ngày', label: 'Thời lượng' },
+        { value: acfFields?.size || '24', unit: 'VĐV', label: 'Quy mô tối đa' },
+        { value: acfFields?.touchpoints || '4', unit: '', label: 'Touchpoints chính' },
+        { value: acfFields?.vibe || '1', unit: '', label: 'Race vibe rất thật' },
+    ];
+
+    const sideDetails = acfFields?.side_details || [
+        { id: '01', title: 'BBQ tối thứ Bảy', desc: 'Một bữa ăn cộng đồng đủ vui để kết nối cả nhóm trước race day.' },
+        { id: '02', title: 'Bữa sáng nhẹ trước thi', desc: 'Gọn, dễ tiêu và đúng tinh thần chuẩn bị cho buổi mô phỏng.' },
+        { id: '03', title: 'Tiếp nước trong race', desc: 'Support không phô trương nhưng đủ để athlete yên tâm.' },
+    ];
+
+    const reflections = acfFields?.reflections || [
+        { quote: 'Điều mình thích nhất là mọi thứ rất gọn, không rối và đủ thật để cảm nhận race day.', author: 'Lê Thành Tùng', role: 'Half-distance athlete' },
+        { quote: 'Open water practice và phần transition giúp mình tự tin hơn rất nhiều so với tự tập một mình.', author: 'Nguyễn Khánh Linh', role: 'First-time triathlete' },
+    ];
 
     return (
         <main className="min-h-screen bg-white text-slate-950">
+            {/* Schema.org JSON-LD Inject */}
+            {jsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: jsonLd }}
+                />
+            )}
+            
             {/* Hero Section */}
-            <section className="relative overflow-hidden bg-[#050b14] pt-28 text-white">
+            <section className="relative overflow-hidden bg-[#050b14] pt-28 text-white min-h-[70vh] flex flex-col items-center justify-center">
                 <div className="absolute inset-0">
                     {featuredImage?.node?.sourceUrl && (
-                        <img 
+                        <Image 
                             src={featuredImage.node.sourceUrl} 
                             alt={title} 
-                            className="h-full w-full object-cover"
+                            fill
+                            className="object-cover"
+                            priority
                         />
                     )}
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,10,18,0.22)_0%,rgba(5,10,18,0.44)_36%,rgba(5,10,18,0.92)_100%)]" />
                 </div>
                 
-                <Container className="relative z-10 pb-14 md:pb-16">
+                <Container className="relative z-10 pb-14 md:pb-20">
                     <Link 
                         href="/stories"
                         className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/76 backdrop-blur-sm transition-all hover:bg-white/12 hover:text-white"
@@ -39,28 +115,23 @@ export default async function StoryDetail({ params }: { params: { slug: string }
                         Quay lại stories
                     </Link>
                     
-                    <div className="mt-10 max-w-4xl">
-                        <h1 className="max-w-[20ch] text-[clamp(2.5rem,5.2vw,5.2rem)] leading-[1.02] tracking-tight text-white font-bold" style={{ textWrap: 'balance' }}>
+                    <div className="mt-12 max-w-5xl">
+                        <h1 className="max-w-[20ch] text-[clamp(2.5rem,5.5vw,5.5rem)] leading-[1.02] tracking-tighter text-white font-black" style={{ textWrap: 'balance' }}>
                             {title}
                         </h1>
                         <div 
-                            className="mt-5 max-w-2xl text-[16px] leading-7 text-white/64 line-clamp-2"
+                            className="mt-6 max-w-2xl text-[18px] leading-8 text-white/70 font-medium line-clamp-3"
                             dangerouslySetInnerHTML={{ __html: post.excerpt || '' }}
                         />
                         
-                        <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            {[
-                                { value: acfFields?.duration || '3', unit: 'ngày', label: 'Thời lượng' },
-                                { value: acfFields?.size || '24', unit: 'VĐV', label: 'Quy mô tối đa' },
-                                { value: acfFields?.touchpoints || '4', unit: '', label: 'Touchpoints chính' },
-                                { value: acfFields?.vibe || '1', unit: '', label: 'Race vibe rất thật' },
-                            ].map((item, i) => (
-                                <div key={i} className="rounded-[24px] border border-white/8 bg-white/[0.04] p-5">
-                                    <div className="text-[32px] leading-none tracking-tight text-white font-bold">
+                        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {stats.map((item, i) => (
+                                <div key={i} className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 backdrop-blur-md">
+                                    <div className="text-[36px] leading-none tracking-tight text-white font-black">
                                         {item.value}
-                                        {item.unit && <span className="ml-1 text-base text-white/44 font-normal">{item.unit}</span>}
+                                        {item.unit && <span className="ml-1 text-base text-white/40 font-normal">{item.unit}</span>}
                                     </div>
-                                    <div className="mt-3 text-sm text-white/48">{item.label}</div>
+                                    <div className="mt-4 text-sm font-bold text-white/40 uppercase tracking-widest">{item.label}</div>
                                 </div>
                             ))}
                         </div>
@@ -69,10 +140,10 @@ export default async function StoryDetail({ params }: { params: { slug: string }
             </section>
 
             {/* Article Content */}
-            <section className="bg-white py-12 text-slate-950 md:py-14">
+            <section className="bg-white py-20 text-slate-950 md:py-32">
                 <Container>
                     <article className="w-full">
-                        <div className="max-w-[820px] mx-auto prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-[#2C4ACE] prose-img:rounded-[32px] prose-img:shadow-2xl">
+                        <div className="max-w-[840px] mx-auto prose prose-slate prose-xl max-w-none prose-headings:font-black prose-headings:tracking-tighter prose-a:text-[#2C4ACE] prose-img:rounded-[40px] prose-img:shadow-2xl prose-p:leading-9">
                              <ContentRender content={content} />
                         </div>
                     </article>
@@ -80,17 +151,18 @@ export default async function StoryDetail({ params }: { params: { slug: string }
             </section>
 
             {/* Side Details Section */}
-            <section className="bg-[#f2f5fa] py-12 text-slate-950 md:py-14">
+            <section className="bg-[#f8fafc] py-20 text-slate-950 md:py-32 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-[120px] -mr-64 -mt-64" />
                 <Container>
-                    <div className="w-full">
-                        <div className="mb-6 md:mb-8">
+                    <div className="w-full relative">
+                        <div className="mb-12 md:mb-16">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                                <div className="max-w-[780px]">
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">Bên lề chuyến đi</p>
-                                    <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
+                                <div className="max-w-[840px]">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#2C4ACE] mb-4">Bên lề chuyến đi</p>
+                                    <h2 className="text-[clamp(2.2rem,4.5vw,3.8rem)] leading-[1.05] tracking-tight text-slate-950 font-black" style={{ textWrap: 'balance' }}>
                                         Những chi tiết nhỏ nhưng thường là thứ ở lại lâu nhất.
                                     </h2>
-                                    <p className="mt-4 max-w-[44rem] text-[14px] leading-7 text-slate-600">
+                                    <p className="mt-6 max-w-[48rem] text-lg leading-8 text-slate-600 font-medium">
                                         Không chỉ có buổi tập. Cả bữa ăn, chỗ nghỉ và những khoảng chậm giữa lịch trình cũng làm nên cảm giác của chuyến đi.
                                     </p>
                                 </div>
@@ -98,15 +170,11 @@ export default async function StoryDetail({ params }: { params: { slug: string }
                         </div>
 
                         <div className="grid gap-8 md:grid-cols-3">
-                            {[
-                                { id: '01', title: 'BBQ tối thứ Bảy', desc: 'Một bữa ăn cộng đồng đủ vui để kết nối cả nhóm trước race day.' },
-                                { id: '02', title: 'Bữa sáng nhẹ trước thi', desc: 'Gọn, dễ tiêu và đúng tinh thần chuẩn bị cho buổi mô phỏng.' },
-                                { id: '03', title: 'Tiếp nước trong race', desc: 'Support không phô trương nhưng đủ để athlete yên tâm.' },
-                            ].map((item, i) => (
-                                <div key={i} className="group rounded-[20px] border border-slate-200/60 bg-white p-6 transition-all duration-400 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{item.id}</div>
-                                    <h3 className="mt-4 text-[24px] leading-[1.08] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>{item.title}</h3>
-                                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.desc}</p>
+                            {sideDetails.map((item: any, i: number) => (
+                                <div key={i} className="group rounded-[32px] border border-slate-200/60 bg-white p-8 transition-all duration-400 hover:-translate-y-1 hover:shadow-[0_24px_50px_rgba(15,23,42,0.08)]">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#2C4ACE] mb-6">{item.id || `0${i+1}`}</div>
+                                    <h3 className="text-[26px] leading-[1.1] tracking-tight text-slate-950 font-black">{item.title}</h3>
+                                    <p className="mt-4 text-base leading-7 text-slate-600 font-medium">{item.desc}</p>
                                 </div>
                             ))}
                         </div>
@@ -115,31 +183,25 @@ export default async function StoryDetail({ params }: { params: { slug: string }
             </section>
 
             {/* Reflections Section */}
-            <section className="bg-white py-12 text-slate-950 md:py-14">
+            <section className="bg-white py-20 text-slate-950 md:py-32">
                 <Container>
                     <div className="w-full">
-                        <div className="mb-6 md:mb-8">
-                            <div className="max-w-[780px]">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">Athlete reflections</p>
-                                <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
-                                    Cảm nhận từ người đã trực tiếp tham gia.
-                                </h2>
-                                <p className="mt-4 max-w-[44rem] text-[14px] leading-7 text-slate-600">
-                                    Ngắn gọn, đúng bối cảnh và không cần nói quá.
-                                </p>
-                            </div>
+                        <div className="mb-12 md:mb-16 text-center max-w-3xl mx-auto">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#2C4ACE] mb-4">Athlete reflections</p>
+                            <h2 className="text-[clamp(2.2rem,4vw,3.5rem)] leading-[1.1] tracking-tight text-slate-950 font-black">
+                                Cảm nhận từ người đã trực tiếp tham gia.
+                            </h2>
                         </div>
 
-                        <div className="grid gap-5 md:grid-cols-2 md:auto-rows-fr">
-                            {[
-                                { quote: 'Điều mình thích nhất là mọi thứ rất gọn, không rối và đủ thật để cảm nhận race day.', author: 'Lê Thành Tùng', role: 'Half-distance athlete' },
-                                { quote: 'Open water practice và phần transition giúp mình tự tin hơn rất nhiều so với tự tập một mình.', author: 'Nguyễn Khánh Linh', role: 'First-time triathlete' },
-                            ].map((item, i) => (
-                                <div key={i} className="group flex h-full flex-col rounded-[20px] border border-slate-200/60 bg-[#f8faff] p-6 transition-all duration-400 hover:-translate-y-1 hover:bg-white hover:shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
-                                    <Quote className="h-5 w-5 text-[#2C4ACE]" />
-                                    <p className="mt-4 text-sm leading-8 text-slate-600 italic">"{item.quote}"</p>
-                                    <div className="mt-auto pt-5 text-sm font-semibold text-slate-950">{item.author}</div>
-                                    <div className="mt-1 text-sm text-slate-500">{item.role}</div>
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {reflections.map((item: any, i: number) => (
+                                <div key={i} className="group flex h-full flex-col rounded-[32px] border border-slate-200/60 bg-[#f8faff] p-10 transition-all duration-400 hover:-translate-y-1 hover:bg-white hover:shadow-[0_30px_60px_rgba(15,23,42,0.1)]">
+                                    <Quote className="h-8 w-8 text-[#2C4ACE] opacity-50" />
+                                    <p className="mt-6 text-xl leading-9 text-slate-700 font-medium italic">"{item.quote}"</p>
+                                    <div className="mt-auto pt-10">
+                                        <div className="text-lg font-black text-slate-950">{item.author}</div>
+                                        <div className="mt-1 text-sm font-bold text-[#2C4ACE] uppercase tracking-wider">{item.role}</div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -148,57 +210,47 @@ export default async function StoryDetail({ params }: { params: { slug: string }
             </section>
 
             {/* Related Stories */}
-            <section className="bg-[#eef4ff] py-12 text-slate-950 md:py-14">
+            <section className="bg-[#f0f4f9] py-20 text-slate-950 md:py-32">
                 <Container>
                     <div className="w-full">
-                        <div className="mb-6 md:mb-8">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="mb-12 md:mb-16">
+                            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                                 <div className="max-w-[780px]">
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">Bài liên quan</p>
-                                    <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#2C4ACE] mb-4">Bài liên quan</p>
+                                    <h2 className="text-[clamp(2.2rem,4vw,3.5rem)] leading-[1.1] tracking-tight text-slate-950 font-black">
                                         Đọc thêm một vài chuyến đi khác.
                                     </h2>
                                 </div>
                                 <Link 
                                     href="/stories"
-                                    className="inline-flex items-center gap-2 text-sm font-semibold transition-all duration-300 hover:gap-3 text-slate-700 hover:text-[#2C4ACE]"
+                                    className="group inline-flex items-center gap-3 rounded-2xl bg-white border border-slate-200 px-6 py-4 text-sm font-bold transition-all duration-300 hover:-translate-y-1 hover:shadow-xl text-slate-900"
                                 >
                                     Xem tất cả stories
-                                    <ArrowRight className="h-4 w-4" />
+                                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                                 </Link>
                             </div>
                         </div>
                         
-                        <div className="grid gap-5 md:grid-cols-2">
-                            {recentPosts?.filter(p => p.slug !== params.slug).slice(0, 2).map((story, i) => (
+                        <div className="grid gap-8 md:grid-cols-2">
+                            {recentPosts?.filter(p => p.slug !== slug).slice(0, 2).map((story, i) => (
                                 <Link 
                                     key={story.slug}
                                     href={`/stories/${story.slug}`}
-                                    className="group overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.1)]"
+                                    className="group flex flex-col lg:flex-row overflow-hidden rounded-[40px] border border-slate-200 bg-white transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_40px_80px_rgba(15,23,42,0.12)]"
                                 >
-                                    <div className="relative aspect-[1.15/1] overflow-hidden">
-                                        <img 
-                                            src={story.featuredImage?.node?.sourceUrl} 
+                                    <div className="relative aspect-square lg:w-48 shrink-0 overflow-hidden">
+                                        <Image 
+                                            src={story.featuredImage?.node?.sourceUrl || "https://res.cloudinary.com/dxai5ztql/image/upload/q_auto/f_auto/v1775714724/IMG_0478_vrcofm.jpg"} 
                                             alt={story.title}
-                                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                                            fill
+                                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         />
-                                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,10,18,0.08),rgba(5,10,18,0.56)_100%)]" />
-                                        <div className="absolute left-5 top-5">
-                                            <span className="inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm border-white/22 bg-white/10 text-white/76">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-[#59E7F3]"></span>
-                                                Story
-                                            </span>
-                                        </div>
                                     </div>
-                                    <div className="p-6">
-                                        <h3 className="text-[30px] leading-[1.04] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>{story.title}</h3>
-                                        <div 
-                                            className="mt-4 text-sm leading-7 text-slate-600 line-clamp-2"
-                                            dangerouslySetInnerHTML={{ __html: story.excerpt || '' }}
-                                        />
-                                        <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#2C4ACE] transition-all duration-300 group-hover:gap-3">
+                                    <div className="p-8 flex flex-col justify-center">
+                                        <h3 className="text-2xl font-black text-slate-950 line-clamp-2 leading-tight">{story.title}</h3>
+                                        <div className="mt-4 text-sm font-black text-[#2c4ace] flex items-center gap-2">
                                             Đọc tiếp
-                                            <ArrowRight className="h-4 w-4" />
+                                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                                         </div>
                                     </div>
                                 </Link>
@@ -209,30 +261,33 @@ export default async function StoryDetail({ params }: { params: { slug: string }
             </section>
 
             {/* Bottom CTA */}
-            <section className="bg-white py-12 text-slate-950 md:py-14">
+            <section className="bg-white py-20 md:py-32 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-50/50 to-transparent pointer-events-none" />
                 <Container>
-                    <div className="border-t border-slate-200 pt-8 text-center">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Đến lượt bạn</p>
-                        <h3 className="mt-4 text-[clamp(1.8rem,4vw,3rem)] leading-[1.02] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
+                    <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-[#2C4ACE] mb-8">Đến lượt bạn</p>
+                        <h3 className="text-[clamp(2.2rem,5vw,4.5rem)] leading-[1.02] tracking-tighter text-slate-950 font-black mb-12">
                             Câu chuyện tiếp theo hoàn toàn có thể là chuyến đi của bạn.
                         </h3>
-                        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                        <div className="flex flex-col justify-center gap-4 sm:flex-row">
                             <Link 
                                 href="/camps" 
-                                className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 text-white"
+                                className="group relative inline-flex items-center justify-center gap-3 rounded-2xl px-10 py-5 text-lg font-black text-white transition-all duration-300 hover:-translate-y-1 overflow-hidden"
                                 style={{ 
-                                    background: 'linear-gradient(135deg, rgb(91, 116, 214) 0%, rgb(44, 74, 206) 58%, rgb(22, 46, 151) 100%)', 
-                                    boxShadow: 'rgba(44, 74, 206, 0.22) 0px 10px 24px' 
+                                    background: 'linear-gradient(135deg, rgb(44, 74, 206), rgb(22, 46, 151))', 
+                                    boxShadow: 'rgba(44, 74, 206, 0.3) 0px 20px 40px' 
                                 }}
                             >
-                                Xem camp sắp mở
-                                <ArrowRight className="h-4 w-4" />
+                                <span className="relative z-10 flex items-center gap-3">
+                                    Xem camp đang mở
+                                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                                </span>
                             </Link>
                             <Link 
                                 href="/apply"
-                                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-10 py-5 text-lg font-bold text-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300"
                             >
-                                Đăng ký tư vấn
+                                Nhận tư vấn lộ trình
                             </Link>
                         </div>
                     </div>

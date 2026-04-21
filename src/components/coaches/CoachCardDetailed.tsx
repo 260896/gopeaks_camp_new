@@ -33,10 +33,17 @@ export default function CoachCardDetailed({ coach }: CoachCardDetailedProps) {
                             {coach.acfFields?.position || coach.description || 'Chuyên gia huấn luyện tại Gopeaks'}
                         </p>
                     </div>
-                    <div className="mt-6 flex items-center justify-start gap-4 border-t border-slate-200 pt-5">
-                        <span className="rounded-full border border-slate-200 bg-[#f6f8fc] px-4 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                            {coach.acfFields?.expertise || 'Triathlon · Ironman'}
-                        </span>
+                    <div className="mt-6 flex flex-wrap items-center justify-start gap-2 border-t border-slate-200 pt-5">
+                        {coach.acfFields?.certifications?.slice(0, 2).map((cert: any, idx: number) => (
+                            <span key={idx} className="rounded-full border border-slate-200 bg-[#f6f8fc] px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                {cert.title}
+                            </span>
+                        ))}
+                        {(!coach.acfFields?.certifications || coach.acfFields?.certifications.length === 0) && (
+                            <span className="rounded-full border border-slate-200 bg-[#f6f8fc] px-4 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                {coach.acfFields?.expertise || 'Triathlon · Ironman'}
+                            </span>
+                        )}
                     </div>
                 </div>
             </Link>

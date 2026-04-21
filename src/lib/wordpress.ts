@@ -1,5 +1,10 @@
 export const WP_URL = 'https://sub.gopeaks.coach/wp-json/wp/v2';
 
+export function stripHtml(html: string) {
+  if (!html) return '';
+  return html.replace(/<[^>]*>?/gm, '').trim();
+}
+
 type AcfImage = {
   ID?: number;
   url?: string;
@@ -391,10 +396,12 @@ export async function getPageBySlug(slug: string) {
       const page = pages[0];
       return {
         title: page.title.rendered,
+        slug: page.slug,
         content: page.content.rendered,
         featuredImage: {
           node: { sourceUrl: page._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
         },
+        acfFields: page.acf || {},
       };
     }
     return null;
@@ -404,10 +411,40 @@ export async function getPageBySlug(slug: string) {
   }
 }
 
+export async function getPageById(id: number | string) {
+  const url = `${WP_URL}/pages/${id}?_embed`;
+  try {
+    const page = await fetchWithCache<any>(url);
+    return {
+      title: page.title.rendered,
+      slug: page.slug,
+      content: page.content.rendered,
+      featuredImage: {
+        node: { sourceUrl: page._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
+      },
+      acfFields: page.acf || {},
+    };
+  } catch (err) {
+    console.error(`Failed to fetch page ${id}:`, err);
+    return null;
+  }
+}
+
 export async function fetchWPStories(): Promise<any[]> {
   const url = `${WP_URL}/posts?categories=14&_embed&per_page=100`;
   try {
-    return await fetchWithCache(url);
+    const posts = await fetchWithCache<any[]>(url);
+    return posts.map((post) => ({
+      title: post.title.rendered,
+      slug: post.slug,
+      date: post.date,
+      excerpt: post.excerpt.rendered,
+      content: post.content.rendered,
+      featuredImage: {
+        node: { sourceUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
+      },
+      acfFields: post.acf || {},
+    }));
   } catch (err) {
     console.error('Failed to fetch stories from WordPress:', err);
     return [];
@@ -426,10 +463,36 @@ export async function getRecentPosts(count: number = 10) {
       featuredImage: {
         node: { sourceUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
       },
+      acfFields: post.acf || {},
     }));
   } catch (err) {
     console.error('Failed to fetch recent posts:', err);
     return [];
+  }
+}
+
+export async function getPostBySlug(slug: string) {
+  const url = `${WP_URL}/posts?slug=${slug}&_embed`;
+  try {
+    const posts = await fetchWithCache<any[]>(url);
+    if (posts.length > 0) {
+      const post = posts[0];
+      return {
+        title: post.title.rendered,
+        slug: post.slug,
+        date: post.date,
+        content: post.content.rendered,
+        excerpt: post.excerpt.rendered,
+        featuredImage: {
+          node: { sourceUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
+        },
+        acfFields: post.acf || {},
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error(`Failed to fetch post ${slug}:`, err);
+    return null;
   }
 }
 
@@ -440,6 +503,7 @@ export async function getCoaches() {
     return coaches.map((coach) => ({
       title: coach.title.rendered,
       slug: coach.slug,
+      content: coach.content.rendered,
       featuredImage: {
         node: { sourceUrl: coach._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
       },
@@ -448,6 +512,29 @@ export async function getCoaches() {
   } catch (err) {
     console.error('Failed to fetch coaches:', err);
     return [];
+  }
+}
+
+export async function getCoachBySlug(slug: string) {
+  const url = `${WP_URL}/coach?slug=${slug}&_embed`;
+  try {
+    const coaches = await fetchWithCache<any[]>(url);
+    if (coaches.length > 0) {
+      const coach = coaches[0];
+      return {
+        title: coach.title.rendered,
+        slug: coach.slug,
+        content: coach.content.rendered,
+        featuredImage: {
+          node: { sourceUrl: coach._embedded?.['wp:featuredmedia']?.[0]?.source_url || '' },
+        },
+        acfFields: coach.acf,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error(`Failed to fetch coach ${slug}:`, err);
+    return null;
   }
 }
 const WP_BASE_URL = 'https://sub.gopeaks.coach';

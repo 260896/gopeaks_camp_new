@@ -1,125 +1,162 @@
-'use client';
+import React from 'react';
+import { Container } from '@/components/home/Shared';
+import { getPageById, stripHtml } from '@/lib/wordpress';
+import { normalizeSEO, replaceWPDomain } from '@/lib/seo';
+import { Metadata } from 'next';
+import { ChevronDown, ArrowRight, MessageCircle } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
-import React, { useState } from 'react';
+export async function generateMetadata(): Promise<Metadata> {
+    const page = await getPageById(875);
+    if (!page) return { title: 'FAQ | Gopeaks' };
 
-const faqData = [
-    {
-        question: "Cần chuẩn bị gì trước khi tham gia Camp?",
-        answer: "Bạn cần chuẩn bị trang phục chạy bộ phù hợp, giày chuyên dụng (trail hoặc road tùy loại camp), bình nước cá nhân, và các vật dụng vệ sinh cá nhân. Danh sách chi tiết (Gear list) sẽ được chúng tôi gửi qua email 1 tuần trước khi camp bắt đầu."
-    },
-    {
-        question: "Tôi là người mới bắt đầu có tham gia được không?",
-        answer: "Hoàn toàn được! GoPeaks có các chương trình được thiết kế riêng cho từng cấp độ. Trong mỗi kỳ camp, chúng tôi đều chia thành các nhóm nhỏ (Sub-groups) có pacer và HLV đi cùng để đảm bảo mọi người đều hoàn thành bài tập một cách an toàn."
-    },
-    {
-        question: "Chính sách hoàn hủy và dời lịch như thế nào?",
-        answer: "Chúng tôi hỗ trợ bảo lưu 100% học phí hoặc hoàn phí 70% nếu bạn thông báo trước 15 ngày. Các trường hợp báo muộn hơn sẽ được xem xét tùy theo tình hình thực tế về chi phí đã đặt cọc cho bên dịch vụ lưu trú."
-    },
-    {
-        question: "Chi phí Camp đã bao gồm những gì?",
-        answer: "Thông thường, chi phí đã bao gồm: Xe đưa đón, khách sạn/homestay, các bữa ăn chính, bảo hiểm du lịch, đội ngũ HLV & Pacer, nước uống và dinh dưỡng bổ trợ trong lúc tập luyện."
-    },
-    {
-        question: "Tôi có được tư vấn giáo án sau khi kết thúc Camp không?",
-        answer: "Có, sau mỗi kỳ Camp, các HLV sẽ có buổi nhận xét và định hướng giáo án cho bạn dựa trên kết quả tập luyện thực tế trong những ngày diễn ra Camp."
-    }
-];
+    const acf = page.acfFields || {};
+    
+    const seoData = normalizeSEO({
+        title: acf.rank_math_title || "FAQ training camp | Giải đáp nhanh trước khi chốt camp",
+        description: stripHtml(acf.rank_math_description || "Những câu hỏi thường gặp nhất về training camp Gopeaks: lịch camp, trình độ phù hợp, lưu trú, người đi cùng và cách đăng ký."),
+        canonical: acf.rank_math_canonical_url || "https://gopeaks.camp/faq",
+        ogTitle: acf.rank_math_og_title,
+        ogDescription: acf.rank_math_og_description,
+        ogImage: acf.rank_math_og_image,
+        robots: acf.rank_math_robots,
+    });
 
-const AccordionItem = ({ question, answer }: { question: string, answer: string }) => {
-    const [isOpen, setIsOpen] = useState(false);
+    return {
+        title: seoData.title,
+        description: seoData.description,
+        alternates: { canonical: seoData.canonical },
+        robots: seoData.robots,
+        openGraph: {
+            title: seoData.ogTitle || seoData.title,
+            description: seoData.ogDescription || seoData.description,
+            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
+            url: seoData.canonical,
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: seoData.title,
+            description: seoData.description,
+            images: seoData.ogImage ? [seoData.ogImage] : [],
+        }
+    };
+}
+
+export default async function FAQPage() {
+    const page = await getPageById(875);
+    const faqs = page?.acfFields?.faq_camps || [];
+    
+    // Schema JSON-LD
+    const jsonLd = page?.acfFields?.rank_math_json_ld ? replaceWPDomain(typeof page.acfFields.rank_math_json_ld === 'string' ? page.acfFields.rank_math_json_ld : JSON.stringify(page.acfFields.rank_math_json_ld)) : null;
 
     return (
-        <div 
-            className={`group transition-all duration-300 rounded-[32px] overflow-hidden mb-4 ${
-                isOpen ? 'bg-white shadow-xl shadow-primary/5 border-2 border-primary/10' : 'bg-muted/50 border-2 border-transparent hover:bg-muted'
-            }`}
-        >
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full px-8 py-6 flex items-center justify-between text-left focus:outline-none"
-            >
-                <span className={`text-xl font-bold transition-colors ${isOpen ? 'text-primary' : 'text-primary/70'}`}>
-                    {question}
-                </span>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    isOpen ? 'bg-primary text-white rotate-180' : 'bg-white text-primary group-hover:bg-primary group-hover:text-white'
-                }`}>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
-            </button>
-            <div 
-                className={`transition-all duration-500 ease-in-out overflow-hidden ${
-                    isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                }`}
-            >
-                <div className="px-8 pb-8 text-lg text-muted-foreground leading-relaxed">
-                    <div className="pt-4 border-t border-muted">
-                        {answer}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default function FAQPage() {
-    return (
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen overflow-x-hidden bg-[#f4f7ff] text-slate-950">
+            {/* Schema.org JSON-LD Inject */}
+            {jsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: jsonLd }}
+                />
+            )}
             {/* Hero Section */}
-            <section className="relative pt-48 pb-32 bg-primary overflow-hidden">
+            <section className="relative flex flex-col justify-end overflow-hidden text-white min-h-[56svh] pt-24">
                 <div className="absolute inset-0">
-                    <img 
-                        src="https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=2070&auto=format&fit=crop" 
-                        alt="Background" 
-                        className="w-full h-full object-cover opacity-20"
+                    <Image 
+                        src="https://res.cloudinary.com/dxai5ztql/image/upload/q_auto/f_auto/v1775719328/IMG_0753_3_nkefol.jpg" 
+                        alt="FAQ Hero" 
+                        fill
+                        className="object-cover"
+                        priority
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-primary/50 to-primary" />
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,10,22,0.14)_0%,rgba(5,10,22,0.24)_28%,rgba(5,10,22,0.52)_58%,rgba(5,10,22,0.92)_100%)]"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(4,237,247,0.08),transparent_22%)]"></div>
                 </div>
-                
-                <div className="max-w-7xl mx-auto px-4 relative z-10 text-center">
-                    <h1 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tight">
-                        GIẢI ĐÁP CÁC <br/>
-                        <span className="text-accent italic">THẮC MẮC THƯỜNG GẶP</span>
-                    </h1>
-                </div>
+                <Container className="relative z-10 pb-12 lg:pb-16">
+                    <div className="max-w-[980px] animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                        <h1 className="tracking-tight text-white max-w-[20ch] text-[clamp(2.15rem,4.4vw,3.95rem)] leading-[1.08] font-bold" style={{ textWrap: 'balance' }}>
+                            Giải đáp các thắc mắc thường gặp.
+                        </h1>
+                        <p className="mt-4 max-w-[44rem] text-[15px] leading-7 text-white/80 md:text-[16px] md:leading-7">
+                            Tổng hợp thông tin về trình độ vđv, cách thức đăng ký và tổ chức để bạn chuẩn bị tốt nhất cho kỳ camp.
+                        </p>
+                    </div>
+                </Container>
             </section>
 
-            {/* Content Section */}
-            <section className="py-24">
-                <div className="max-w-4xl mx-auto px-4">
-                    <div className="mb-16 text-center">
-                        <span className="text-accent font-black uppercase tracking-[0.2em] mb-4 block">FAQ</span>
-                        <h2 className="text-4xl md:text-5xl font-black text-primary leading-tight">
-                            Thông tin trực diện và đầy đủ.
-                        </h2>
-                    </div>
+            {/* FAQ List Section */}
+            <section className="bg-white py-12 text-slate-950 md:py-14">
+                <Container>
+                    <div className="mx-auto max-w-4xl">
+                        {/* Section Header */}
+                        <div className="mb-6 md:mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                <div className="max-w-[780px]">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">FAQ</p>
+                                    <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
+                                        Thông tin trực diện và đầy đủ.
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div className="space-y-2">
-                        {faqData.map((item, index) => (
-                            <AccordionItem 
-                                key={index} 
-                                question={item.question} 
-                                answer={item.answer} 
-                            />
-                        ))}
-                    </div>
+                        {/* FAQ Items */}
+                        <div className="space-y-2">
+                            {faqs.map((faq: any, i: number) => (
+                                <div 
+                                    key={i} 
+                                    className="animate-in fade-in slide-in-from-bottom-4 duration-1000"
+                                    style={{ animationDelay: `${i * 30}ms` }}
+                                >
+                                    <details className="group rounded-[16px] border backdrop-blur-xl transition-all duration-300 border-white/40 bg-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_12px_rgba(15,23,42,0.03)] hover:border-white/60 hover:bg-white/70 open:border-[#2C4ACE]/20 open:bg-white/80 open:shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_24px_rgba(44,74,206,0.08)]">
+                                        <summary className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left list-none">
+                                            <span className="text-[15px] leading-7 text-slate-950 font-semibold">
+                                                {faq.question}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-300 group-open:rotate-180 text-slate-400 group-open:text-[#2C4ACE]" />
+                                        </summary>
+                                        <div className="px-5 pb-4">
+                                            <div 
+                                                className="text-sm leading-7 text-slate-600 prose prose-slate max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: faq.anwer || faq.answer }}
+                                            />
+                                        </div>
+                                    </details>
+                                </div>
+                            ))}
+                        </div>
 
-                    {/* Bottom CTA */}
-                    <div className="mt-20 p-12 bg-muted/30 rounded-[48px] text-center border-2 border-dashed border-muted">
-                        <h3 className="text-2xl font-black text-primary mb-4">Cần hỏi theo trường hợp riêng?</h3>
-                        <p className="text-muted-foreground mb-8">
-                            Đừng ngần ngại liên hệ trực tiếp với chúng tôi qua Zalo hoặc Hotline để được hỗ trợ 24/7.
-                        </p>
-                        <div className="flex flex-col sm:flex-row justify-center gap-4">
-                            <button className="btn-primary px-10 py-4">Nhắn tin Zalo</button>
-                            <button className="bg-white border-2 border-primary/10 text-primary font-bold px-10 py-4 rounded-full hover:bg-primary hover:text-white transition-all">
-                                Xem Camp đang mở
-                            </button>
+                        {/* Bottom CTA Area */}
+                        <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+                            <div className="border-t border-slate-200 pt-8">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Cần hỏi theo trường hợp riêng</p>
+                                <h3 className="mt-4 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] leading-[1.02] tracking-tight text-slate-950 font-bold">
+                                    Liên hệ để được tư vấn lộ trình riêng theo mục tiêu, và nhu cầu cá nhân của bạn.
+                                </h3>
+                                <div className="mt-6 flex flex-wrap items-center gap-3">
+                                    <Link 
+                                        href="/apply"
+                                        className="inline-flex min-h-[52px] items-center gap-2 rounded-full border border-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5"
+                                        style={{ 
+                                            background: 'linear-gradient(135deg, rgb(44, 74, 206) 0%, rgb(44, 74, 206) 58%, rgb(22, 46, 151) 100%)', 
+                                            boxShadow: 'rgba(44, 74, 206, 0.22) 0px 10px 24px' 
+                                        }}
+                                    >
+                                        Đăng ký tư vấn
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                    <Link 
+                                        href="/camps"
+                                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                                    >
+                                        Xem camp đang mở
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Container>
             </section>
         </main>
     );

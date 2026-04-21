@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { Suspense } from "react";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} h-full antialiased scroll-smooth`}>
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden">
-        <Navbar />
+        <Suspense fallback={<div className="h-[72px] bg-white border-b border-slate-100" />}>
+          <Navbar />
+        </Suspense>
         {children}
         <Footer />
       </body>

@@ -1,48 +1,85 @@
 import React from 'react'
-import Link from 'next/image'
+import Image from 'next/image'
 import { Container } from '@/components/home/Shared'
 import CoachesHero from '@/components/coaches/CoachesHero'
 import CoachCardDetailed from '@/components/coaches/CoachCardDetailed'
 import CoachesGallery from '@/components/coaches/CoachesGallery'
-import { getCoaches } from '@/lib/wordpress'
-import LinkCTA from 'next/link'
+import { getCoaches, getPageBySlug, stripHtml } from '@/lib/wordpress'
+import { normalizeSEO, replaceWPDomain } from '@/lib/seo'
+import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
+import { Metadata } from 'next'
 
-export const metadata = {
-    title: "Huấn luyện viên training camp | Đội ngũ coach Gopeaks",
-    description: "Gặp đội ngũ coach đang đồng hành cùng các training camp Gopeaks, từ triathlon và open water đến pacing, race rehearsal và race week support.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const page = await getPageBySlug('coaches');
+    
+    const acf = (page as any)?.acf || {};
+    const imageUrl = page?.featuredImage?.node?.sourceUrl || '';
+
+    const seoData = normalizeSEO({
+        title: acf.rank_math_title || page?.title || "Huấn luyện viên training camp | Đội ngũ coach Gopeaks",
+        description: stripHtml(acf.rank_math_description || (page as any)?.excerpt || "Gặp đội ngũ coach đang đồng hành cùng các training camp Gopeaks, từ triathlon và open water đến pacing, race rehearsal và race week support."),
+        canonical: acf.rank_math_canonical_url || "https://gopeaks.camp/coaches",
+        ogTitle: acf.rank_math_og_title,
+        ogDescription: acf.rank_math_og_description,
+        ogImage: acf.rank_math_og_image || imageUrl,
+        robots: acf.rank_math_robots,
+    });
+
+    return {
+        title: seoData.title,
+        description: seoData.description,
+        alternates: { canonical: seoData.canonical },
+        robots: seoData.robots,
+        openGraph: {
+            title: seoData.ogTitle || seoData.title,
+            description: seoData.ogDescription || seoData.description,
+            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
+            url: seoData.canonical,
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: seoData.title,
+            description: seoData.description,
+            images: seoData.ogImage ? [seoData.ogImage] : [],
+        }
+    };
+}
 
 export default async function CoachesPage() {
     const coaches = await getCoaches();
 
     return (
-        <main className="min-h-screen overflow-x-hidden bg-[#f4f7ff] text-slate-950">
+        <main className="min-h-screen overflow-x-hidden bg-[#f8fafc] text-slate-950">
             {/* Hero Section */}
             <CoachesHero />
 
             {/* Introduction Section */}
-            <section className="bg-white py-12 text-slate-950 md:py-14">
+            <section className="bg-white py-16 md:py-24 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-[120px] -mr-64 -mt-64" />
                 <Container>
-                    <div className="w-full">
-                        <div className="mb-6 md:mb-8">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                                <div className="max-w-[780px]">
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">Đội ngũ</p>
-                                    <h2 className="mt-3 text-[clamp(1.72rem,3.5vw,2.95rem)] leading-[1.1] tracking-tight text-slate-950 font-bold" style={{ textWrap: 'balance' }}>
-                                        Năng lực huấn luyện đa dạng và chuyên sâu.
+                    <div className="w-full relative">
+                        <div className="mb-12 md:mb-16">
+                            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                                <div className="max-w-[840px]">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2c4ace]/10 text-[#2c4ace] text-[10px] font-bold uppercase tracking-wider mb-4">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#2c4ace]" />
+                                        Đội ngũ vận hành
+                                    </div>
+                                    <h2 className="text-[clamp(2.2rem,4.5vw,3.8rem)] leading-[1.05] tracking-tight text-slate-950 font-black" style={{ textWrap: 'balance' }}>
+                                        Năng lực huấn luyện <span className="text-[#2c4ace]">đa dạng</span> và chuyên sâu.
                                     </h2>
-                                    <p className="mt-4 max-w-[44rem] text-[14px] leading-7 text-slate-600">
-                                        Mỗi huấn luyện viên mang đến một góc nhìn chuyên môn, cùng tạo nên hệ thống phát triển toàn diện cho vận động viên.
+                                    <p className="mt-6 max-w-[48rem] text-lg leading-8 text-slate-600/90 font-medium">
+                                        Mỗi huấn luyện viên mang đến một góc nhìn chuyên môn độc đáo, từ kỹ thuật bơi open water đến chiến thuật đạp xe và dinh dưỡng thi đấu, cùng tạo nên hệ thống phát triển toàn diện cho vận động viên.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Coaches Grid */}
-                        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+                        <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
                             {coaches?.map((coach: any, i: number) => (
-                                <CoachCardDetailed key={coach.slug} coach={coach} index={i} />
+                                <CoachCardDetailed key={coach.slug} coach={coach} />
                             ))}
                         </div>
                     </div>
@@ -52,33 +89,59 @@ export default async function CoachesPage() {
             {/* Gallery Section */}
             <CoachesGallery />
 
-            {/* Bottom CTA Section */}
-            <section className="bg-white py-10 md:py-12">
+            {/* Stats/Trust Section */}
+            <section className="bg-slate-950 py-20 text-white">
                 <Container>
-                    <div className="border-t border-slate-200 pt-8">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Chọn camp trước</p>
-                        <h3 className="mt-4 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] leading-[1.02] tracking-tight text-slate-950 font-bold">
-                            Xem chi tiết các kỳ camp để tìm lộ trình phù hợp với bạn nhất.
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                        <div>
+                            <p className="text-4xl md:text-5xl font-black text-[#2c4ace] mb-2">10+</p>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Huấn luyện viên</p>
+                        </div>
+                        <div>
+                            <p className="text-4xl md:text-5xl font-black text-[#2c4ace] mb-2">500+</p>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Học viên tin chọn</p>
+                        </div>
+                        <div>
+                            <p className="text-4xl md:text-5xl font-black text-[#2c4ace] mb-2">50+</p>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Chứng chỉ quốc tế</p>
+                        </div>
+                        <div>
+                            <p className="text-4xl md:text-5xl font-black text-[#2c4ace] mb-2">100%</p>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Tâm huyết đồng hành</p>
+                        </div>
+                    </div>
+                </Container>
+            </section>
+
+            {/* Bottom CTA Section */}
+            <section className="bg-white py-20 md:py-32 relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-50/50 to-transparent" />
+                <Container>
+                    <div className="relative z-10 text-center max-w-4xl mx-auto">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#2c4ace] mb-6">Chọn kỳ camp của bạn</p>
+                        <h3 className="text-[clamp(2.2rem,5vw,4.2rem)] leading-[1.02] tracking-tighter text-slate-950 font-black mb-10">
+                            Khởi đầu hành trình chinh phục kỳ tích cá nhân.
                         </h3>
-                        <div className="mt-6 flex flex-wrap items-center gap-3">
-                            <LinkCTA 
-                                href="/camps" 
-                                className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5"
-                                style={{ 
-                                    background: 'linear-gradient(135deg, rgb(44, 74, 206), rgb(22, 46, 151))', 
-                                    boxShadow: 'rgba(44, 74, 206, 0.24) 0px 16px 34px' 
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                            <Link
+                                href="/camps"
+                                className="group relative inline-flex items-center gap-3 rounded-2xl px-10 py-5 text-lg font-black text-white transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgb(44, 74, 206), rgb(22, 46, 151))',
+                                    boxShadow: 'rgba(44, 74, 206, 0.3) 0px 20px 40px'
                                 }}
                             >
-                                Xem camp đang mở
-                                <ArrowRight className="h-4 w-4" />
-                            </LinkCTA>
-                            <LinkCTA 
-                                href="/apply" 
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                                <span className="relative z-10 flex items-center gap-3">
+                                    Xem các kỳ camp đang mở
+                                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                                </span>
+                            </Link>
+                            <Link
+                                href="/apply"
+                                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-10 py-5 text-lg font-bold text-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300"
                             >
-                                Nhận tư vấn
-                                <ArrowRight className="h-4 w-4" />
-                            </LinkCTA>
+                                Nhận tư vấn lộ trình
+                            </Link>
                         </div>
                     </div>
                 </Container>

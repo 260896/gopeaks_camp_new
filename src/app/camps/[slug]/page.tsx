@@ -1,5 +1,7 @@
-import { fetchWPCampBySlug, fetchWPCamps, mapWPCampToUpcomingCamp } from '@/lib/wordpress';
+import { fetchWPCampBySlug, fetchWPCamps, mapWPCampToUpcomingCamp, stripHtml } from '@/lib/wordpress';
+import { normalizeSEO, replaceWPDomain } from '@/lib/seo';
 import { Container } from '@/components/home/Shared';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import CampHero from '@/components/camps/CampHero';
 import CampOverview from '@/components/camps/CampOverview';
@@ -14,7 +16,42 @@ import CampFAQ from '@/components/camps/CampFAQ';
 import CampLocation from '@/components/camps/CampLocation';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+    const { slug } = await params;
+    const rawCamp = await fetchWPCampBySlug(slug);
+    if (!rawCamp) return { title: 'Camp Not Found' };
 
+    const imageUrl = rawCamp._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
+
+    const seoData = normalizeSEO({
+        title: acf.rank_math_title || rawCamp.title.rendered,
+        description: stripHtml(acf.rank_math_description || rawCamp.excerpt?.rendered || ''),
+        canonical: acf.rank_math_canonical_url || `https://gopeaks.camp/camps/${slug}`,
+        ogTitle: acf.rank_math_og_title,
+        ogDescription: acf.rank_math_og_description,
+        ogImage: acf.rank_math_og_image || imageUrl,
+        robots: acf.rank_math_robots,
+    });
+
+    return {
+        title: seoData.title,
+        description: seoData.description,
+        alternates: { canonical: seoData.canonical },
+        robots: seoData.robots,
+        openGraph: {
+            title: seoData.ogTitle || seoData.title,
+            description: seoData.ogDescription || seoData.description,
+            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
+            url: seoData.canonical,
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: seoData.title,
+            description: seoData.description,
+            images: seoData.ogImage ? [seoData.ogImage] : [],
+        }
+    };
+}
 
 export async function generateStaticParams() {
     const rawCamps = await fetchWPCamps();
@@ -51,8 +88,18 @@ const bannerEndImage = typeof bannerEnd?.image === 'object' && bannerEnd?.image 
     // Filter coaches from mapped data
     const coaches = camp.coaches || [];
 
+    // Schema JSON-LD
+    const jsonLd = acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null;
+
     return (
         <main className="min-h-screen bg-white">
+            {/* Schema.org JSON-LD Inject */}
+            {jsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: jsonLd }}
+                />
+            )}
             <CampHero 
                 title={bannerStart?.title_banner || title} 
                 description={bannerStart?.banner_description || ''} 

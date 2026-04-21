@@ -1,36 +1,26 @@
-import { Metadata } from 'next';
-import { getRankMathSEO } from '@/lib/wordpress';
+const WP_DOMAIN = "https://sub.gopeaks.coach";
+const FRONT_DOMAIN = "https://gopeaks.camp";
 
-export async function generateSEOMetadata(
-  pageUrl: string,
-  fallback?: {
-    title?: string;
-    description?: string;
-    image?: string;
-  }
-): Promise<Metadata> {
-  const seo = await getRankMathSEO(pageUrl);
+export function normalizeSEO(seo: any) {
+  const replace = (str?: string) => {
+    if (!str) return str;
+    // Replace both with and without trailing slash cases
+    return str.replaceAll(WP_DOMAIN, FRONT_DOMAIN);
+  };
 
   return {
-    title: seo?.title || fallback?.title || 'Gopeaks',
-    description: seo?.description || fallback?.description || '',
-    alternates: {
-      canonical: seo?.canonical || pageUrl,
-    },
-    openGraph: {
-      title: seo?.ogTitle || seo?.title || fallback?.title || 'Gopeaks',
-      description: seo?.ogDescription || seo?.description || fallback?.description || '',
-      images: seo?.ogImage
-        ? [{ url: seo.ogImage }]
-        : fallback?.image
-        ? [{ url: fallback.image }]
-        : [],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: seo?.ogTitle || seo?.title || fallback?.title || '',
-      description: seo?.ogDescription || seo?.description || fallback?.description || '',
-      images: seo?.ogImage ? [seo.ogImage] : [],
-    },
+    title: seo?.title,
+    description: seo?.description,
+    canonical: replace(seo?.canonical),
+    ogImage: replace(seo?.ogImage) || "https://gopeaks.camp/favicon.png",
+    ogTitle: seo?.ogTitle,
+    ogDescription: seo?.ogDescription,
+    schema: replace(seo?.schema),
+    robots: seo?.robots || 'index, follow'
   };
+}
+
+export function replaceWPDomain(str: string) {
+    if (!str) return str;
+    return str.replaceAll(WP_DOMAIN, FRONT_DOMAIN);
 }

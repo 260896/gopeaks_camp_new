@@ -22,6 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     if (!rawCamp) return { title: 'Camp Not Found' };
 
     const imageUrl = rawCamp._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
+    const acf = rawCamp.acf || {};
 
     const seoData = normalizeSEO({
         title: acf.rank_math_title || rawCamp.title.rendered,
@@ -46,8 +47,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         },
         twitter: {
             card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
+            title: seoData.ogTitle || seoData.title,
+            description: seoData.ogDescription || seoData.description,
             images: seoData.ogImage ? [seoData.ogImage] : [],
         }
     };

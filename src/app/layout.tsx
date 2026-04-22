@@ -10,6 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://gopeaks.camp"),
   title: "GoPeaks - Đỉnh Cao Huấn Luyện & Trải Nghiệm Camp",
   description: "Hệ thống huấn luyện thể thao chuyên nghiệp cho runner và trail runner.",
   icons: {
@@ -25,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} h-full antialiased scroll-smooth`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased scroll-smooth`}>
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden">
         <Suspense fallback={<div className="h-[72px] bg-white border-b border-slate-100" />}>
           <Navbar />

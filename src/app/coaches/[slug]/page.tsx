@@ -1,7 +1,7 @@
 import React from 'react';
 import { Container } from '@/components/home/Shared';
-import { getCoachBySlug, getCoaches, stripHtml } from '@/lib/wordpress';
-import { normalizeSEO, replaceWPDomain } from '@/lib/seo';
+import { getCoachBySlug, getCoaches, getRankMathSEO } from '@/lib/wordpress';
+import { replaceWPDomain } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -9,49 +9,50 @@ import { ChevronLeft, ArrowLeft, ShieldCheck, MessageCircle } from 'lucide-react
 import { Metadata } from 'next';
 import CoachCardDetailed from '@/components/coaches/CoachCardDetailed';
 
+const FRONT_DOMAIN = 'https://gopeaks.camp';
+const WP_URL = 'https://sub.gopeaks.coach';
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
-    const coach = await getCoachBySlug(slug);
+    const [coach, seo] = await Promise.all([
+        getCoachBySlug(slug),
+        getRankMathSEO(`${WP_URL}/coach/${slug}/`),
+    ]);
     if (!coach) return { title: 'Coach Not Found' };
 
-    const acf = coach.acfFields || {};
     const imageUrl = coach.featuredImage?.node?.sourceUrl || '';
 
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || coach.title,
-        description: stripHtml(acf.rank_math_description || coach.acfFields?.position || coach.content || ''),
-        canonical: acf.rank_math_canonical_url || `https://gopeaks.camp/coaches/${slug}`,
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image || imageUrl,
-        robots: acf.rank_math_robots,
-    });
+    const title = seo?.title || coach.title;
+    const description = seo?.description || coach.acfFields?.position || '';
+    const canonical = seo?.canonical || `${FRONT_DOMAIN}/coaches/${slug}`;
+    const ogImage = seo?.ogImage || imageUrl || `${FRONT_DOMAIN}/favicon.png`;
 
     return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: { canonical: seoData.canonical },
-        robots: seoData.robots,
+        title,
+        description,
+        alternates: { canonical },
+        robots: seo?.robots || 'index, follow',
         openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-            url: seoData.canonical,
+            title: seo?.ogTitle || title,
+            description: seo?.ogDescription || description,
+            images: ogImage ? [{ url: ogImage }] : [],
+            url: canonical,
         },
         twitter: {
             card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
+            title: seo?.twitterTitle || title,
+            description: seo?.twitterDescription || description,
+            images: seo?.twitterImage ? [seo.twitterImage] : ogImage ? [ogImage] : [],
+        },
     };
 }
 
 export default async function CoachPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
-    const [coach, allCoaches] = await Promise.all([
+    const [coach, allCoaches, seo] = await Promise.all([
         getCoachBySlug(slug),
-        getCoaches()
+        getCoaches(),
+        getRankMathSEO(`${WP_URL}/coach/${slug}/`),
     ]);
 
     if (!coach) {
@@ -67,8 +68,8 @@ export default async function CoachPage({ params }: { params: Promise<{ slug: st
     // Lọc các coach khác
     const otherCoaches = allCoaches?.filter((c: any) => c.slug !== slug).slice(0, 3) || [];
 
-    // Schema JSON-LD
-    const jsonLd = acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null;
+    // Schema JSON-LD from RankMath (preferred) or ACF fallback
+    const jsonLd = seo?.schema || (acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null);
 
     return (
         <main className="min-h-screen overflow-x-hidden bg-white text-slate-950">

@@ -1,5 +1,5 @@
-import { getPostBySlug, getRecentPosts, stripHtml } from "@/lib/wordpress";
-import { normalizeSEO, replaceWPDomain } from "@/lib/seo";
+import { getPostBySlug, getRecentPosts, getRankMathSEO } from "@/lib/wordpress";
+import { replaceWPDomain } from "@/lib/seo";
 import { Container } from "@/components/home/Shared";
 import ContentRender from "@/components/wp-content/ContentRender";
 import Link from "next/link";
@@ -8,51 +8,52 @@ import { ArrowLeft, Quote, ArrowRight } from "lucide-react";
 import { Metadata } from 'next';
 import Image from 'next/image';
 
+const FRONT_DOMAIN = 'https://gopeaks.camp';
+const WP_URL = 'https://sub.gopeaks.coach';
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
-    const post = await getPostBySlug(slug);
+    const [post, seo] = await Promise.all([
+        getPostBySlug(slug),
+        getRankMathSEO(`${WP_URL}/${slug}/`),
+    ]);
     if (!post) return { title: 'Story Not Found' };
 
-    const acf = post.acfFields || {};
     const imageUrl = post.featuredImage?.node?.sourceUrl || null;
-    
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || post.title,
-        description: stripHtml(acf.rank_math_description || post.excerpt || ''),
-        canonical: acf.rank_math_canonical_url || `https://gopeaks.camp/stories/${slug}`,
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image || imageUrl,
-        robots: acf.rank_math_robots,
-    });
+
+    const title = seo?.title || post.title;
+    const description = seo?.description || post.excerpt?.replace(/<[^>]*>/g, '') || '';
+    const canonical = seo?.canonical || `${FRONT_DOMAIN}/stories/${slug}`;
+    const ogImage = seo?.ogImage || imageUrl || `${FRONT_DOMAIN}/favicon.png`;
 
     return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: {
-            canonical: seoData.canonical,
-        },
-        robots: seoData.robots,
+        title,
+        description,
+        alternates: { canonical },
+        robots: seo?.robots || 'index, follow',
         openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
+            title: seo?.ogTitle || title,
+            description: seo?.ogDescription || description,
+            images: ogImage ? [{ url: ogImage }] : [],
             type: 'article',
-            url: seoData.canonical,
+            url: canonical,
         },
         twitter: {
             card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
+            title: seo?.twitterTitle || title,
+            description: seo?.twitterDescription || description,
+            images: seo?.twitterImage ? [seo.twitterImage] : ogImage ? [ogImage] : [],
+        },
     };
 }
 
 export default async function StoryDetail({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
-    const post = await getPostBySlug(slug);
-    const recentPosts = await getRecentPosts(3);
+    const [post, recentPosts, seo] = await Promise.all([
+        getPostBySlug(slug),
+        getRecentPosts(3),
+        getRankMathSEO(`${WP_URL}/${slug}/`),
+    ]);
 
     if (!post) {
         notFound();
@@ -60,8 +61,8 @@ export default async function StoryDetail({ params }: { params: Promise<{ slug: 
 
     const { title, content, featuredImage, acfFields } = post;
     
-    // Schema JSON-LD
-    const jsonLd = acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null;
+    // Schema JSON-LD from RankMath (preferred) or ACF fallback
+    const jsonLd = seo?.schema || (acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null);
 
     const stats = [
         { value: acfFields?.duration || '3', unit: 'ngày', label: 'Thời lượng' },

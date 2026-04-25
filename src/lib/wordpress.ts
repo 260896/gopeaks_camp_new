@@ -120,6 +120,8 @@ export interface WPCamp {
       question?: string;
       answer?: string;
     }>;
+    rank_math_json_ld?: string | Record<string, any>;
+    [key: string]: any; // allow extra ACF fields without strict type errors
   };
   _embedded?: {
     'wp:featuredmedia'?: Array<{
@@ -544,26 +546,9 @@ export async function getRankMathSEO(pageUrl: string) {
     const apiUrl = `${WP_BASE_URL}/wp-json/rankmath/v1/getHead?url=${encodeURIComponent(pageUrl)}`;
     const data = await fetchWithCache<{ head: string; success: boolean }>(apiUrl);
     if (!data.success) return null;
-
-    const head = data.head;
-
-    // Parse các thẻ cần thiết
-    const titleMatch = head.match(/<title>([^<]+)<\/title>/);
-    const descMatch = head.match(/name="description"\s+content="([^"]+)"/);
-    const ogTitleMatch = head.match(/property="og:title"\s+content="([^"]+)"/);
-    const ogDescMatch = head.match(/property="og:description"\s+content="([^"]+)"/);
-    const ogImageMatch = head.match(/property="og:image"\s+content="([^"]+)"/);
-    const canonicalMatch = head.match(/rel="canonical"\s+href="([^"]+)"/);
-
-    return {
-      title: titleMatch?.[1] || '',
-      description: descMatch?.[1] || '',
-      ogTitle: ogTitleMatch?.[1] || '',
-      ogDescription: ogDescMatch?.[1] || '',
-      ogImage: ogImageMatch?.[1] || '',
-      canonical: canonicalMatch?.[1] || '',
-      rawHead: head,
-    };
+    
+    const { parseRankMathHead } = await import('./seo');
+    return parseRankMathHead(data.head);
   } catch (err) {
     console.error('Failed to fetch RankMath SEO:', err);
     return null;

@@ -1,70 +1,66 @@
 import React from 'react';
 import { Container } from '@/components/home/Shared';
-import { getPageById, stripHtml } from '@/lib/wordpress';
-import { normalizeSEO, replaceWPDomain } from '@/lib/seo';
+import { getPageById, getRankMathSEO } from '@/lib/wordpress';
 import { Metadata } from 'next';
 import { ChevronDown, ArrowRight, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export async function generateMetadata(): Promise<Metadata> {
-    const page = await getPageById(875);
-    if (!page) return { title: 'FAQ | Gopeaks' };
+const FRONT_DOMAIN = 'https://gopeaks.camp';
+const WP_URL = 'https://sub.gopeaks.coach';
 
-    const acf = page.acfFields || {};
-    
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || "FAQ training camp | Giải đáp nhanh trước khi chốt camp",
-        description: stripHtml(acf.rank_math_description || "Những câu hỏi thường gặp nhất về training camp Gopeaks: lịch camp, trình độ phù hợp, lưu trú, người đi cùng và cách đăng ký."),
-        canonical: acf.rank_math_canonical_url || "https://gopeaks.camp/faq",
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image,
-        robots: acf.rank_math_robots,
-    });
+export async function generateMetadata(): Promise<Metadata> {
+    const seo = await getRankMathSEO(`${WP_URL}/faq/`);
+
+    const title = seo?.title || 'FAQ training camp | Giải đáp nhanh trước khi chốt camp';
+    const description = seo?.description || 'Những câu hỏi thường gặp nhất về training camp Gopeaks: lịch camp, trình độ phù hợp, lưu trú, người đi cùng và cách đăng ký.';
+    const canonical = seo?.canonical || `${FRONT_DOMAIN}/faq`;
+    const ogImage = seo?.ogImage || `${FRONT_DOMAIN}/favicon.png`;
 
     return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: { canonical: seoData.canonical },
-        robots: seoData.robots,
+        title,
+        description,
+        alternates: { canonical },
+        robots: seo?.robots || 'index, follow',
         openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-            url: seoData.canonical,
+            title: seo?.ogTitle || title,
+            description: seo?.ogDescription || description,
+            images: ogImage ? [{ url: ogImage }] : [],
+            url: canonical,
         },
         twitter: {
             card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
+            title: seo?.twitterTitle || title,
+            description: seo?.twitterDescription || description,
+            images: seo?.twitterImage ? [seo.twitterImage] : ogImage ? [ogImage] : [],
+        },
     };
 }
 
 export default async function FAQPage() {
-    const page = await getPageById(875);
+    const [page, seo] = await Promise.all([
+        getPageById(875),
+        getRankMathSEO(`${WP_URL}/faq/`),
+    ]);
+
     const faqs = page?.acfFields?.faq_camps || [];
-    
-    // Schema JSON-LD
-    const jsonLd = page?.acfFields?.rank_math_json_ld ? replaceWPDomain(typeof page.acfFields.rank_math_json_ld === 'string' ? page.acfFields.rank_math_json_ld : JSON.stringify(page.acfFields.rank_math_json_ld)) : null;
 
     return (
         <main className="min-h-screen overflow-x-hidden bg-[#f4f7ff] text-slate-950">
-            {/* Schema.org JSON-LD Inject */}
-            {jsonLd && (
+            {/* Schema.org JSON-LD from RankMath */}
+            {seo?.schema && (
                 <script
                     type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: jsonLd }}
+                    dangerouslySetInnerHTML={{ __html: seo.schema }}
                 />
             )}
+
             {/* Hero Section */}
             <section className="relative flex flex-col justify-end overflow-hidden text-white min-h-[56svh] pt-24">
                 <div className="absolute inset-0">
-                    <Image 
-                        src="https://res.cloudinary.com/dxai5ztql/image/upload/q_auto/f_auto/v1775719328/IMG_0753_3_nkefol.jpg" 
-                        alt="FAQ Hero" 
+                    <Image
+                        src="https://res.cloudinary.com/dxai5ztql/image/upload/q_auto/f_auto/v1775719328/IMG_0753_3_nkefol.jpg"
+                        alt="FAQ Hero"
                         fill
                         className="object-cover"
                         priority
@@ -103,8 +99,8 @@ export default async function FAQPage() {
                         {/* FAQ Items */}
                         <div className="space-y-2">
                             {faqs.map((faq: any, i: number) => (
-                                <div 
-                                    key={i} 
+                                <div
+                                    key={i}
                                     className="animate-in fade-in slide-in-from-bottom-4 duration-1000"
                                     style={{ animationDelay: `${i * 30}ms` }}
                                 >
@@ -116,7 +112,7 @@ export default async function FAQPage() {
                                             <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-300 group-open:rotate-180 text-slate-400 group-open:text-[#2C4ACE]" />
                                         </summary>
                                         <div className="px-5 pb-4">
-                                            <div 
+                                            <div
                                                 className="text-sm leading-7 text-slate-600 prose prose-slate max-w-none"
                                                 dangerouslySetInnerHTML={{ __html: faq.anwer || faq.answer }}
                                             />
@@ -134,18 +130,18 @@ export default async function FAQPage() {
                                     Liên hệ để được tư vấn lộ trình riêng theo mục tiêu, và nhu cầu cá nhân của bạn.
                                 </h3>
                                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                                    <Link 
+                                    <Link
                                         href="/apply"
                                         className="inline-flex min-h-[52px] items-center gap-2 rounded-full border border-transparent px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5"
-                                        style={{ 
-                                            background: 'linear-gradient(135deg, rgb(44, 74, 206) 0%, rgb(44, 74, 206) 58%, rgb(22, 46, 151) 100%)', 
-                                            boxShadow: 'rgba(44, 74, 206, 0.22) 0px 10px 24px' 
+                                        style={{
+                                            background: 'linear-gradient(135deg, rgb(44, 74, 206) 0%, rgb(44, 74, 206) 58%, rgb(22, 46, 151) 100%)',
+                                            boxShadow: 'rgba(44, 74, 206, 0.22) 0px 10px 24px'
                                         }}
                                     >
                                         Đăng ký tư vấn
                                         <ArrowRight className="h-4 w-4" />
                                     </Link>
-                                    <Link 
+                                    <Link
                                         href="/camps"
                                         className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
                                     >

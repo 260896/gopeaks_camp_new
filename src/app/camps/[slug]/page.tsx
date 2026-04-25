@@ -1,5 +1,5 @@
-import { fetchWPCampBySlug, fetchWPCamps, mapWPCampToUpcomingCamp, stripHtml } from '@/lib/wordpress';
-import { normalizeSEO, replaceWPDomain } from '@/lib/seo';
+import { fetchWPCampBySlug, fetchWPCamps, mapWPCampToUpcomingCamp, getRankMathSEO } from '@/lib/wordpress';
+import { replaceWPDomain } from '@/lib/seo';
 import { Container } from '@/components/home/Shared';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -16,41 +16,41 @@ import CampFAQ from '@/components/camps/CampFAQ';
 import CampLocation from '@/components/camps/CampLocation';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+const FRONT_DOMAIN = 'https://gopeaks.camp';
+const WP_URL = 'https://sub.gopeaks.coach';
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
-    const rawCamp = await fetchWPCampBySlug(slug);
+    const [rawCamp, seo] = await Promise.all([
+        fetchWPCampBySlug(slug),
+        getRankMathSEO(`${WP_URL}/camps/${slug}/`),
+    ]);
     if (!rawCamp) return { title: 'Camp Not Found' };
 
     const imageUrl = rawCamp._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
-    const acf = rawCamp.acf || {};
 
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || rawCamp.title.rendered,
-        description: stripHtml(acf.rank_math_description || rawCamp.excerpt?.rendered || ''),
-        canonical: acf.rank_math_canonical_url || `https://gopeaks.camp/camps/${slug}`,
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image || imageUrl,
-        robots: acf.rank_math_robots,
-    });
+    const title = seo?.title || rawCamp.title.rendered;
+    const description = seo?.description || rawCamp.excerpt?.rendered?.replace(/<[^>]*>/g, '') || '';
+    const canonical = seo?.canonical || `${FRONT_DOMAIN}/camps/${slug}`;
+    const ogImage = seo?.ogImage || imageUrl || `${FRONT_DOMAIN}/favicon.png`;
 
     return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: { canonical: seoData.canonical },
-        robots: seoData.robots,
+        title,
+        description,
+        alternates: { canonical },
+        robots: seo?.robots || 'index, follow',
         openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-            url: seoData.canonical,
+            title: seo?.ogTitle || title,
+            description: seo?.ogDescription || description,
+            images: ogImage ? [{ url: ogImage }] : [],
+            url: canonical,
         },
         twitter: {
             card: 'summary_large_image',
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
+            title: seo?.twitterTitle || title,
+            description: seo?.twitterDescription || description,
+            images: seo?.twitterImage ? [seo.twitterImage] : ogImage ? [ogImage] : [],
+        },
     };
 }
 
@@ -62,8 +62,11 @@ export async function generateStaticParams() {
 }
 
 export default async function CampDetail({ params }: { params: Promise<{ slug: string }> }) {
-    const { slug } = await params;  // phải await params trước
-    const rawCamp = await fetchWPCampBySlug(slug);
+    const { slug } = await params;  // đượng await params trước
+    const [rawCamp, seo] = await Promise.all([
+        fetchWPCampBySlug(slug),
+        getRankMathSEO(`${WP_URL}/camps/${slug}/`),
+    ]);
     
     if (!rawCamp) {
         notFound();
@@ -89,8 +92,8 @@ const bannerEndImage = typeof bannerEnd?.image === 'object' && bannerEnd?.image 
     // Filter coaches from mapped data
     const coaches = camp.coaches || [];
 
-    // Schema JSON-LD
-    const jsonLd = acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null;
+    // Schema JSON-LD from RankMath (preferred) or ACF fallback
+    const jsonLd = seo?.schema || (acfFields?.rank_math_json_ld ? replaceWPDomain(typeof acfFields.rank_math_json_ld === 'string' ? acfFields.rank_math_json_ld : JSON.stringify(acfFields.rank_math_json_ld)) : null);
 
     return (
         <main className="min-h-screen bg-white">

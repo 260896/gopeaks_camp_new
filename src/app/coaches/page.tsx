@@ -4,47 +4,28 @@ import { Container } from '@/components/home/Shared'
 import CoachesHero from '@/components/coaches/CoachesHero'
 import CoachCardDetailed from '@/components/coaches/CoachCardDetailed'
 import CoachesGallery from '@/components/coaches/CoachesGallery'
-import { getCoaches, getPageBySlug, stripHtml } from '@/lib/wordpress'
-import { normalizeSEO, replaceWPDomain } from '@/lib/seo'
+import { getCoaches } from '@/lib/wordpress'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Metadata } from 'next'
 
-export async function generateMetadata(): Promise<Metadata> {
-    const page = await getPageBySlug('coaches');
-    
-    const acf = (page as any)?.acf || {};
-    const imageUrl = page?.featuredImage?.node?.sourceUrl || '';
+const FRONT_DOMAIN = 'https://gopeaks.camp';
 
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || page?.title || "Huấn luyện viên training camp | Đội ngũ coach Gopeaks",
-        description: stripHtml(acf.rank_math_description || (page as any)?.excerpt || "Gặp đội ngũ coach đang đồng hành cùng các training camp Gopeaks, từ triathlon và open water đến pacing, race rehearsal và race week support."),
-        canonical: acf.rank_math_canonical_url || "https://gopeaks.camp/coaches",
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image || imageUrl,
-        robots: acf.rank_math_robots,
-    });
-
-    return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: { canonical: seoData.canonical },
-        robots: seoData.robots,
-        openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-            url: seoData.canonical,
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
-    };
-}
+export const metadata: Metadata = {
+    title: 'Huấn luyện viên training camp | Đội ngũ coach Gopeaks',
+    description: 'Gặp đội ngũ coach đang đồng hành cùng các training camp Gopeaks, từ triathlon và open water đến pacing, race rehearsal và race week support.',
+    alternates: { canonical: `${FRONT_DOMAIN}/coaches` },
+    robots: 'index, follow',
+    openGraph: {
+        title: 'Huấn luyện viên training camp | Đội ngũ coach Gopeaks',
+        description: 'Gặp đội ngũ coach đang đồng hành cùng các training camp Gopeaks, từ triathlon và open water đến pacing, race rehearsal và race week support.',
+        url: `${FRONT_DOMAIN}/coaches`,
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Huấn luyện viên training camp | Đội ngũ coach Gopeaks',
+    },
+};
 
 export default async function CoachesPage() {
     const coaches = await getCoaches();

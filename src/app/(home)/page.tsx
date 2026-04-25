@@ -1,4 +1,4 @@
-import { getAllCamps, getRecentPosts, mapWPCampToUpcomingCamp, getPageBySlug, stripHtml } from "@/lib/wordpress";
+import { getAllCamps, getRecentPosts, mapWPCampToUpcomingCamp, stripHtml, getRankMathSEO } from "@/lib/wordpress";
 import Hero from "@/components/home/Hero";
 import Partners from "@/components/home/Partners";
 import FeaturedCamps from "@/components/home/FeaturedCamps";
@@ -7,62 +7,54 @@ import Stories from "@/components/home/Stories";
 import InclusionSection from "@/components/home/InclusionSection";
 import BottomCTA from "@/components/home/BottomCTA";
 import { Metadata } from "next";
-import { normalizeSEO, replaceWPDomain } from "@/lib/seo";
+
+const FRONT_DOMAIN = "https://gopeaks.camp";
+const WP_URL = "https://sub.gopeaks.coach";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageBySlug('home');
-  
-  const acf = (page as any)?.acf || {};
-  const imageUrl = page?.featuredImage?.node?.sourceUrl || '';
+  const seo = await getRankMathSEO(`${WP_URL}/`);
 
-  const seoData = normalizeSEO({
-    title: acf.rank_math_title || page?.title || "GoPeaks - Đỉnh Cao Huấn Luyện & Trải Nghiệm Camp",
-    description: stripHtml(acf.rank_math_description || (page as any)?.excerpt || "Hệ thống huấn luyện thể thao chuyên nghiệp cho runner và trail runner."),
-    canonical: acf.rank_math_canonical_url || "https://gopeaks.camp",
-    ogTitle: acf.rank_math_og_title,
-    ogDescription: acf.rank_math_og_description,
-    ogImage: acf.rank_math_og_image || imageUrl,
-    robots: acf.rank_math_robots,
-  });
+  const title = seo?.title || "GoPeaks - Đỉnh Cao Huấn Luyện & Trải Nghiệm Camp";
+  const description = seo?.description || "Hệ thống huấn luyện thể thao chuyên nghiệp cho runner và trail runner.";
+  const canonical = seo?.canonical || FRONT_DOMAIN;
+  const ogImage = seo?.ogImage || `${FRONT_DOMAIN}/favicon.png`;
 
   return {
-    title: seoData.title,
-    description: seoData.description,
-    alternates: { canonical: seoData.canonical },
-    robots: seoData.robots,
+    title,
+    description,
+    alternates: { canonical },
+    robots: seo?.robots || "index, follow",
     openGraph: {
-      title: seoData.ogTitle || seoData.title,
-      description: seoData.ogDescription || seoData.description,
-      images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-      url: seoData.canonical,
+      title: seo?.ogTitle || title,
+      description: seo?.ogDescription || description,
+      images: ogImage ? [{ url: ogImage }] : [],
+      url: canonical,
     },
     twitter: {
-      card: 'summary_large_image',
-      title: seoData.title,
-      description: seoData.description,
-      images: seoData.ogImage ? [seoData.ogImage] : [],
-    }
+      card: "summary_large_image",
+      title: seo?.twitterTitle || title,
+      description: seo?.twitterDescription || description,
+      images: seo?.twitterImage ? [seo.twitterImage] : ogImage ? [ogImage] : [],
+    },
   };
 }
 
 export default async function HomePage() {
-  const [rawCamps, posts, page] = await Promise.all([
+  const [rawCamps, posts, seo] = await Promise.all([
     getAllCamps(),
-    getRecentPosts(1), // Main story
-    getPageBySlug('home')
+    getRecentPosts(1),
+    getRankMathSEO(`${WP_URL}/`),
   ]);
 
   const camps = Array.isArray(rawCamps) ? rawCamps.map(mapWPCampToUpcomingCamp) : [];
-  
-  // Schema JSON-LD
-  const jsonLd = (page as any)?.acfFields?.rank_math_json_ld ? replaceWPDomain(typeof (page as any).acfFields.rank_math_json_ld === 'string' ? (page as any).acfFields.rank_math_json_ld : JSON.stringify((page as any).acfFields.rank_math_json_ld)) : null;
 
   return (
     <main className="min-h-screen bg-[#f4f7ff]">
-      {jsonLd && (
+      {/* Schema.org JSON-LD from RankMath */}
+      {seo?.schema && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLd }}
+          dangerouslySetInnerHTML={{ __html: seo.schema }}
         />
       )}
       <Hero />

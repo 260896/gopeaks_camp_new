@@ -2,50 +2,31 @@ import React from 'react'
 import Link from 'next/link'
 import { ArrowRight, Quote } from 'lucide-react'
 import { Container } from '@/components/home/Shared'
-import { fetchWPStories, getPageBySlug, stripHtml } from '@/lib/wordpress'
-import { normalizeSEO, replaceWPDomain } from '@/lib/seo'
+import { fetchWPStories } from '@/lib/wordpress'
 import Image from 'next/image'
 import { Metadata } from 'next'
 
-export async function generateMetadata(): Promise<Metadata> {
-    const page = await getPageBySlug('stories');
-    
-    const acf = (page as any)?.acf || {};
-    const imageUrl = page?.featuredImage?.node?.sourceUrl || null;
+const FRONT_DOMAIN = 'https://gopeaks.camp';
 
-    const seoData = normalizeSEO({
-        title: acf.rank_math_title || page?.title || "Câu chuyện từ camp | Những chuyến đi đã thật sự diễn ra",
-        description: stripHtml(acf.rank_math_description || (page as any)?.excerpt || "Những câu chuyện, hình ảnh và cảm nhận thật từ các athlete đã đi camp cùng Gopeaks tại Bàu Trắng, Phú Quốc và Đà Nẵng."),
-        canonical: acf.rank_math_canonical_url || "https://gopeaks.camp/stories",
-        ogTitle: acf.rank_math_og_title,
-        ogDescription: acf.rank_math_og_description,
-        ogImage: acf.rank_math_og_image || imageUrl,
-        robots: acf.rank_math_robots,
-    });
-
-    return {
-        title: seoData.title,
-        description: seoData.description,
-        alternates: { canonical: seoData.canonical },
-        robots: seoData.robots,
-        openGraph: {
-            title: seoData.ogTitle || seoData.title,
-            description: seoData.ogDescription || seoData.description,
-            images: seoData.ogImage ? [{ url: seoData.ogImage }] : [],
-            url: seoData.canonical,
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: seoData.title,
-            description: seoData.description,
-            images: seoData.ogImage ? [seoData.ogImage] : [],
-        }
-    };
-}
+export const metadata: Metadata = {
+    title: 'Câu chuyện từ camp | Những chuyến đi đã thật sự diễn ra',
+    description: 'Những câu chuyện, hình ảnh và cảm nhận thật từ các athlete đã đi camp cùng Gopeaks tại Bàu Trắng, Phú Quốc và Đà Nẵng.',
+    alternates: { canonical: `${FRONT_DOMAIN}/stories` },
+    robots: 'index, follow',
+    openGraph: {
+        title: 'Câu chuyện từ camp | Những chuyến đi đã thật sự diễn ra',
+        description: 'Những câu chuyện, hình ảnh và cảm nhận thật từ các athlete đã đi camp cùng Gopeaks tại Bàu Trắng, Phú Quốc và Đà Nẵng.',
+        url: `${FRONT_DOMAIN}/stories`,
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Câu chuyện từ camp | Những chuyến đi đã thật sự diễn ra',
+    },
+};
 
 export default async function StoriesPage() {
     const stories = await fetchWPStories();
-    
+
     // Giả sử story đầu tiên là featured
     const featuredStory = stories[0];
     const otherStories = stories.slice(1);
